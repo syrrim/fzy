@@ -259,36 +259,7 @@ typedef struct {
 } keybinding_t;
 
 #define KEY_CTRL(key) ((const char[]){((key) - ('@')), '\0'})
-
-static const keybinding_t keybindings[] = {{"\x7f", action_del_char},	/* DEL */
-					   {KEY_CTRL('H'), action_del_char}, /* Backspace (C-H) */
-					   {KEY_CTRL('W'), action_del_word}, /* C-W */
-					   {KEY_CTRL('U'), action_del_all},  /* C-U */
-					   {KEY_CTRL('I'), action_autocomplete}, /* TAB (C-I ) */
-					   {KEY_CTRL('C'), action_exit},	 /* C-C */
-					   {KEY_CTRL('D'), action_exit},	 /* C-D */
-					   {KEY_CTRL('M'), action_emit},	 /* CR */
-					   {KEY_CTRL('P'), action_prev},	 /* C-P */
-					   {KEY_CTRL('N'), action_next},	 /* C-N */
-					   {KEY_CTRL('K'), action_prev},	 /* C-J */
-					   {KEY_CTRL('J'), action_next},	 /* C-K */
-					   {KEY_CTRL('A'), action_beginning},    /* C-A */
-					   {KEY_CTRL('E'), action_end},		 /* C-E */
-
-					   {"\x1bOD", action_left}, /* LEFT */
-					   {"\x1b[D", action_left}, /* LEFT */
-					   {"\x1bOC", action_right}, /* RIGHT */
-					   {"\x1b[C", action_right}, /* RIGHT */
-					   {"\x1b[A", action_prev}, /* UP */
-					   {"\x1bOA", action_prev}, /* UP */
-					   {"\x1b[B", action_next}, /* DOWN */
-					   {"\x1bOB", action_next}, /* DOWN */
-					   {"\x1b[5~", action_pageup},
-					   {"\x1b[6~", action_pagedown},
-					   {"\x1b[200~", action_ignore},
-					   {"\x1b[201~", action_ignore},
-					   {NULL, NULL}};
-
+KEYBINDINGS
 #undef KEY_CTRL
 
 static void handle_input(tty_interface_t *state, const char *s) {
@@ -297,17 +268,19 @@ static void handle_input(tty_interface_t *state, const char *s) {
 
 	/* See if we have matched a keybinding */
 	for (int i = 0; keybindings[i].key; i++) {
-		if (!strcmp(input, keybindings[i].key)) {
+		int j;
+		for(j=0; keybindings[i].key[j]; j++){
+			if(!input[j]) // partial match, need more input
+				return;
+			if(keybindings[i].key[j] != input[j])
+				break;
+		}
+		if(!input[j]) {
 			keybindings[i].action(state);
 			strcpy(input, "");
 			return;
 		}
 	}
-
-	/* Check if we are in the middle of a keybinding */
-	for (int i = 0; keybindings[i].key; i++)
-		if (!strncmp(input, keybindings[i].key, strlen(input)))
-			return;
 
 	/* No matching keybinding, add to search */
 	for (int i = 0; input[i]; i++)
@@ -320,11 +293,13 @@ static void handle_input(tty_interface_t *state, const char *s) {
 
 int tty_interface_run(tty_interface_t *state) {
 	draw(state);
+	char buf[32];
 
 	for (;;) {
 		do {
-			char s[2] = {tty_getchar(state->tty), '\0'};
-			handle_input(state, s);
+			tty_getchars(state->tty, buf, 32);
+
+			handle_input(state, buf);
 
 			if (state->exit >= 0)
 				return state->exit;

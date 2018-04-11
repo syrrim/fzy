@@ -73,18 +73,16 @@ void tty_getwinsz(tty_t *tty) {
 	}
 }
 
-char tty_getchar(tty_t *tty) {
-	char ch;
-	int size = read(tty->fdin, &ch, 1);
+void tty_getchars(tty_t *tty, char * buf, size_t n) {
+	int size = read(tty->fdin, buf, n-1);
 	if (size < 0) {
 		perror("error reading from tty");
 		exit(EXIT_FAILURE);
 	} else if (size == 0) {
 		/* EOF */
 		exit(EXIT_FAILURE);
-	} else {
-		return ch;
 	}
+	buf[size] = '\0';
 }
 
 int tty_input_ready(tty_t *tty) {
